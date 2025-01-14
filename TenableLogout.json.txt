@@ -1,0 +1,26 @@
+{
+   "vendor_identifier": "Tenable SC",
+   "version": "3.0",
+   "name": "Tenable SC Logout",
+   "content_type": "application/json",
+   "type": "REST_EVENT",
+   "event_type": ["SESSION"],
+   "steps": [
+      {
+         "name": "send logout request",
+         "transport": {"path": "/token"},
+         "operation": "DELETE",
+         "parse": "JSON",
+         "headers": {"X-Requested-With": "XMLHttpRequest", "X-SecurityCenter": "${S:A:SESSID}"}
+      },
+      {
+         "name": "logout. errorcheck",
+         "operation": "CONDITION",
+         "condition": {
+            "condition_type": "AND",
+            "statements": [{"left": "${P:A:error_code}", "op": "!=", "right": "0"}],
+            "error": true
+         }
+      }
+   ]
+}

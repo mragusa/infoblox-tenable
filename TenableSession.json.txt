@@ -1,0 +1,16 @@
+{
+   "name": "Tenable SC Session",
+   "version": "3.0",
+   "type": "REST_ENDPOINT",
+   "inactivity_interval": 1000,
+   "keepalive": true,
+   "login_template": "Tenable SC Login",
+   "logout_template": "Tenable SC Logout",
+   "override_path": true,
+   "path": "/rest",
+   "retry": 0,
+   "retry_template": 0,
+   "timeout": 60,
+   "vendor_identifier": "Tenable",
+   "logout_only_at_template_end": true
+}

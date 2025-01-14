@@ -1,0 +1,485 @@
+{
+   "name": "Tenable Scan",
+   "vendor_identifier": "Tenable",
+   "comment": "Tenable scan assets by a security event",
+   "version": "3.0",
+   "type": "REST_EVENT",
+   "event_type": ["RPZ","TUNNEL"],
+   "content_type": "application/json",
+   "headers": {"X-Requested-With": "XMLHttpRequest", "X-SecurityCenter": "${S:A:SESSID}"},
+   "steps": [
+      {
+         "name": "DebugOnStart",
+         "operation": "NOP",
+         "body": "${XC:DEBUG:{H:}}${XC:DEBUG:{E:}}${XC:DEBUG:{I:}}${XC:DEBUG:{L:}}${XC:DEBUG:{S:}}${XC:DEBUG:{P:}}${XC:DEBUG:{UT:}}"
+      },
+
+   {
+     "name": "checkIPEAs",
+     "operation": "CONDITION",
+     "condition": {
+         "condition_type": "AND","statements": [{"left": "${E:A:ip.extattrs{TNBL_ScanOnEvnt}}", "op": "==", "right": ""}],
+         "next": "checkNetEAs"
+     }
+   },
+
+   {
+     "name": "checkIPScanOnEvent",
+     "operation": "CONDITION",
+     "condition": {
+         "condition_type": "OR","statements": [{"left": "${E:A:ip.extattrs{TNBL_ScanOnEvnt}}", "op": "==", "right": "false"}],
+         "stop": true
+     }
+   },
+
+
+   {
+     "name": "Check_if_Hostname_exists",
+     "operation": "CONDITION",
+     "condition": {
+         "condition_type": "OR","statements": [{"left": "${E:A:ip.names[0]}", "op": "==", "right": ""}],
+         "eval": "${XC:ASSIGN:{L:Hostname}:{S:}}",
+         "else_eval": "${XC:COPY:{L:Hostname}:{E:ip.names[0]}}"
+     }
+   },
+
+
+   {
+     "name": "setLIPVars",
+     "operation": "NOP",
+     "body_list": [
+       "${XC:COPY:{L:Source_ip}:{E:source_ip}}",
+       "${XC:ASSIGN:{L:EASource}:{S:IP}}",
+       "${XC:ASSIGN:{L:SaveEA}:{S:false}}"
+     ]
+   },
+
+
+   {
+     "name": "setIPLastScan",
+     "operation": "CONDITION",
+     "condition": {
+         "condition_type": "OR","statements": [{"left": "${E:A:ip.extattrs{TNBL_ScanTime}}", "op": "==", "right": ""}],
+         "eval": "${XC:ASSIGN:{L:LastScan}:{S:}}",
+         "else_eval": "${XC:COPY:{L:LastScan}:{E:ip.extattrs{TNBL_ScanTime}}}"
+     }
+   },
+
+   {
+     "name": "setIPScanTemplate",
+     "operation": "CONDITION",
+     "condition": {
+         "condition_type": "OR","statements": [{"left": "${E:A:ip.extattrs{TNBL_ScanTemplate}}", "op": "==", "right": ""}],
+         "stop": true,
+         "else_eval": "${XC:COPY:{L:ScanTemplate}:{E:ip.extattrs{TNBL_ScanTemplate}}}"
+     }
+   },
+
+   {
+     "name": "setIPScanTemplateID",
+     "operation": "CONDITION",
+     "condition": {
+         "condition_type": "OR","statements": [{"left": "${E:A:ip.extattrs{TNBL_ScanTemplate}}", "op": "==", "right": ""}],
+         "eval": "${XC:ASSIGN:{L:ScanTemplateID}:{S:false}}",
+         "else_eval": "${XC:COPY:{L:ScanTemplateID}:{E:ip.extattrs{TNBL_ScanTemplateID}}}"
+     }
+   },
+
+   {
+     "name": "setIPAddByHostname",
+     "operation": "CONDITION",
+     "condition": {
+         "condition_type": "OR","statements": [{"left": "${E:A:ip.extattrs{TNBL_AddByHostname}}", "op": "==", "right": ""}],
+         "eval": "${XC:ASSIGN:{L:AddByHostname}:{S:false}}",
+         "else_eval": "${XC:COPY:{L:AddByHostname}:{E:ip.extattrs{TNBL_AddByHostname}}}"
+     }
+   },
+
+   {
+     "name": "checkNetView",
+     "operation": "CONDITION",
+     "condition": {
+       "condition_type": "OR","statements": [{"left": "${E:A:network.network_view}", "op": "==", "right": ""}],
+       "next": "assignScanVars",
+       "else_eval": "${XC:COPY:{L:network_view}:{E:network.network_view}}"
+     }
+   },
+
+   {
+      "name": "Get IPv4Fixed _ref",
+      "operation": "GET",
+      "transport": {"path": "fixedaddress?ipv4addr=${L:U:Source_ip}&network_view=${L:U:network_view}"},
+      "wapi": "v2.7"
+   },
+
+   {
+      "operation": "CONDITION",
+      "name": "wapi_response_getIPv4Fix_ref",
+      "condition": {
+         "condition_type": "AND","statements": [{"left": "${P:A:PARSE[0]{_ref}}", "op": "!=", "right": ""}],
+         "next": "Get_Objref"
+      }
+   },
+
+   {
+      "name": "Get HostIPv4 _ref",
+      "operation": "GET",
+      "transport": {"path": "record:host?ipv4addr=${L:U:Source_ip}&network_view=${L:U:network_view}"},
+      "wapi": "v2.7"
+   },
+
+   {
+      "operation": "CONDITION",
+      "name": "wapi_response_getIPv4Host_ref",
+      "condition": {
+         "condition_type": "AND","statements": [{"left": "${P:A:PARSE[0]{_ref}}", "op": "!=", "right": ""}],
+         "next": "Get_Objref"
+      }
+   },
+
+   {
+      "name": "Get IPv6Fixed _ref",
+      "operation": "GET",
+      "transport": {"path": "ipv6fixedaddress?ipv4addr=${L:U:Source_ip}&network_view=${L:U:network_view}"},
+      "wapi": "v2.7"
+   },
+
+   {
+      "operation": "CONDITION",
+      "name": "wapi_response_getIPv6Fix_ref",
+      "condition": {
+         "condition_type": "AND","statements": [{"left": "${P:A:PARSE[0]{_ref}}", "op": "!=", "right": ""}],
+         "next": "Get_Objref"
+      }
+   },
+
+   {
+      "name": "Get HostIPv6 _ref",
+      "operation": "GET",
+      "transport": {"path": "record:host?ipv6addr=${L:U:Source_ip}&network_view=${L:U:network_view}"},
+      "wapi": "v2.7"
+   },
+
+   {
+      "operation": "CONDITION",
+      "name": "wapi_response_getIPv6Host_ref",
+      "condition": {
+         "condition_type": "AND","statements": [{"left": "${P:A:PARSE[0]{_ref}}", "op": "!=", "right": ""}],
+         "next": "Get_Objref"
+      }
+   },
+
+   {
+      "name": "Get_Objref",
+      "operation": "CONDITION",
+      "condition": {
+         "condition_type": "AND","statements": [{"left": "${P:A:PARSE[0]{_ref}}", "op": "!=", "right": ""}],
+         "eval": "${XC:COPY:{L:Obj_ref}:{P:PARSE[0]{_ref}}}${XC:ASSIGN:{L:SaveEA}:{S:true}}"
+      }
+   },
+
+   {
+      "name": "CheckIfHost",
+      "operation": "CONDITION",
+      "condition": {
+         "condition_type": "AND","statements": [{"left": "${L:A:Obj_ref}", "op": "=~", "right": "record:host"}],
+         "eval": "${XC:ASSIGN:{L:EASource}:{S:HOST}}"
+      }
+   },
+
+   {
+     "name": "goToAssignScanVars",
+     "operation": "CONDITION",
+     "condition": {
+       "condition_type": "OR","statements": [{"left": "", "op": "==", "right": ""}],
+       "next": "assignScanVars"
+     }
+   },
+
+   {
+     "name": "checkNetEAs",
+     "operation": "CONDITION",
+     "condition": {
+         "condition_type": "OR","statements": [
+             {"left": "${E:A:network.extattrs{TNBL_ScanOnEvnt}}", "op": "==", "right": ""},
+             {"left": "${E:A:network.extattrs{TNBL_ScanOnEvnt}}", "op": "==", "right": "false"}
+         ],
+         "stop": true
+     }
+   },
+
+   {
+     "name": "setLNetVars",
+     "operation": "NOP",
+     "body_list": [
+       "${XC:COPY:{L:Source_ip}:{E:source_ip}}",
+       "${XC:ASSIGN:{L:LastScan}:{S:}}",
+       "${XC:ASSIGN:{L:EASource}:{S:Net}}",
+       "${XC:ASSIGN:{L:SaveEA}:{S:false}}",
+       "${XC:ASSIGN:{L:Hostname}:{S:}}",
+       "${XC:ASSIGN:{L:AddByHostname}:{S:false}}"
+     ]
+   },
+
+   {
+     "name": "setNetScanTemplate",
+     "operation": "CONDITION",
+     "condition": {
+         "condition_type": "OR","statements": [{"left": "${E:A:network.extattrs{TNBL_ScanTemplate}}", "op": "==", "right": ""}],
+         "stop": true,
+         "else_eval": "${XC:COPY:{L:ScanTemplate}:{E:network.extattrs{TNBL_ScanTemplate}}}"
+     }
+   },
+
+   {
+     "name": "setNetScanTemplateID",
+     "operation": "CONDITION",
+     "condition": {
+         "condition_type": "OR","statements": [{"left": "${E:A:network.extattrs{TNBL_ScanTemplateID}}", "op": "==", "right": ""}],
+         "eval": "${XC:ASSIGN:{L:ScanTemplateID}:{S:false}}",
+         "else_eval": "${XC:COPY:{L:ScanTemplateID}:{E:network.extattrs{TNBL_ScanTemplateID}}}"
+     }
+   },
+
+   {
+      "name": "Get Network _ref",
+      "operation": "GET",
+      "transport": {"path": "network?network=${E:U:network.network}&network_view=${E:U:network.network_view}"},
+      "wapi": "v2.7"
+   },
+
+   {
+      "operation": "CONDITION",
+      "name": "wapi_response_network_ref",
+      "condition": {
+         "condition_type": "AND","statements": [{"left": "${P:A:PARSE[0]{_ref}}", "op": "!=", "right": ""}],
+         "next": "Get_NetObjref"
+      }
+   },
+
+   {
+      "name": "Get IPv6Network _ref",
+      "operation": "GET",
+      "transport": {"path": "ipv6network?network=${E:U:network.network}&network_view=${E:U:network.network_view}"},
+      "wapi": "v2.7"
+   },
+
+   {
+      "name": "Get_NetObjref",
+      "operation": "CONDITION",
+      "condition": {
+         "condition_type": "AND","statements": [{"left": "${P:A:PARSE[0]{_ref}}", "op": "!=", "right": ""}],
+         "eval": "${XC:COPY:{L:Obj_ref}:{P:PARSE[0]{_ref}}}${XC:ASSIGN:{L:SaveEA}:{S:true}}"
+      }
+   },
+
+   {
+       "name": "assignScanVars",
+       "operation": "NOP",
+       "body_list": [
+           "${XC:COPY:{L:ScanDate}:{UT:TIME}}${XC:FORMAT:TRUNCATE:{L:ScanDate}:{10t}}",
+           "${XC:COPY:{L:ScanSchTime}:{UT:EPOCH}}${XC:FORMAT:DATE_STRFTIME:{L:ScanSchTime}:{%Y%m%dT%H%M59000Z}}"
+        ]
+   },
+
+   {
+     "name": "checkIFScannedToday",
+     "operation": "CONDITION",
+     "condition": {
+         "condition_type": "OR", "statements": [{"left": "${L:A:LastScan}", "op": "==", "right": "${L:A:ScanDate}"}],
+         "stop": true
+     }
+   },
+
+   {
+     "name": "scanByHostname",
+     "operation": "CONDITION",
+     "condition": {
+       "condition_type": "AND","statements": [
+         {"left": "${L:A:AddByHostname}", "op": "==", "right": "true"},
+         {"left": "${L:A:Hostname}", "op": "!=", "right": ""},
+         {"left": "${L:A:EASource}", "op": "==", "right": "HOST"}
+       ],
+       "eval": "${XC:COPY:{L:ScanObject}:{L:Hostname}}",
+       "else_eval": "${XC:COPY:{L:ScanObject}:{L:Source_ip}}"
+     }
+   },
+
+   {
+      "name": "Get a UserID",
+      "operation": "GET",
+      "parse": "JSON",
+      "transport": {"path": "/currentUser"}
+   },
+
+   {
+      "name": "Check a user",
+      "operation": "CONDITION",
+      "condition": {
+         "condition_type": "AND","statements": [{"left": "${P:A:error_code}", "op": "!=", "right": "0"}],
+         "error": true,
+         "else_eval": "${XC:COPY:{L:TNBL_UserId}:{P:response{id}}}"
+      }
+   },
+
+             
+   {
+      "name": "blocked_domain",
+      "operation": "CONDITION",
+      "condition": {
+       "condition_type": "AND", "statements": [{"left": "${E:A:event_type}", "op": "==", "right": "RPZ"}],
+       "eval": "${XC:COPY:{L:BlockedDomain}:{E:query_name}}",
+       "else_eval": "${XC:COPY:{L:BlockedDomain}:{E:domain_name}}"
+      }
+   },
+             
+   {
+     "name": "checkIfExistsScanTemplateID",
+     "operation": "CONDITION",
+     "condition": {
+         "condition_type": "OR","statements": [{"left": "${L:A:ScanTemplateID}", "op": "!=", "right": "false"}],
+         "next": "Copy a scan template"
+     }
+   },
+
+   {
+      "name": "Request all scans",
+      "parse": "JSON",
+      "operation": "GET",
+      "transport": {"path": "/scan"}
+   },
+
+   {
+      "name": "Check all scans request on errors",
+      "operation": "CONDITION",
+      "condition": {
+         "condition_type": "AND","statements": [{"left": "${P:A:error_code}", "op": "!=", "right": "0"}],
+         "else_eval": "${XC:COPY:{L:object_list}:{P:response{manageable}}",
+         "error": true
+      }
+   },
+
+   {
+      "name": "Check if list is empty",
+      "operation": "CONDITION",
+      "condition": {
+         "condition_type": "AND","statements": [{"left": "${L:L:object_list}", "op": "==", "right": "0"}],
+         "stop": true
+      }
+   },
+
+    {
+        "name": "Pop object from the list",
+        "operation": "VARIABLEOP",
+        "variable_ops": [
+           {
+              "operation": "POP",
+              "type": "DICTIONARY",
+              "destination": "L:an_object",
+              "source": "L:object_list"
+          }
+       ]
+    },
+
+    {
+       "name": "check an object",
+       "operation": "CONDITION",
+       "condition": {
+          "condition_type": "AND","statements": [{"left": "${L:A:ScanTemplate}", "op": "!=", "right": "${L:A:an_object{name}}"}],
+          "next": "Check if list is empty",
+          "else_eval": "${XC:COPY:{L:ScanTemplateID}:{L:an_object{id}}}"
+       }
+    },
+
+    {
+      "name": "checkSaveScanID",
+      "operation": "CONDITION",
+      "condition": {
+        "condition_type": "AND","statements": [{"left": "${L:A:SaveEA}", "op": "!=", "right": "true"}],
+        "next": "Copy a scan template"
+      }
+    },
+
+    {
+       "name": "Update ScanID",
+       "operation": "PUT",
+       "transport": {"path": "${L:A:Obj_ref}"},
+       "wapi": "v2.7",
+       "wapi_quoting": "JSON",
+        "body_list": [
+            "{\"extattrs+\":{\"TNBL_ScanTemplateID\": { \"value\": \"${L:A:ScanTemplateID}\"}}}"
+        ]
+
+    },
+
+   {
+      "name": "Copy a scan template",
+      "operation": "POST",
+      "parse": "JSON",
+      "transport": {"path": "/scan/${L:A:ScanTemplateID}/copy"},
+      "body_list": [
+         "{\"targetUser\":{\"id\":\"${L:A:TNBL_UserId}\"},\"name\":\"${L:A:ScanObject} scan requested by IB Outbound API ${E:A:event_type} event at ${L:A:ScanSchTime}. Blocked domain: ${L:A:BlockedDomain}\"}"
+      ]
+   },
+
+   {
+      "name": "Check Copy",
+      "operation": "CONDITION",
+      "condition": {
+         "condition_type": "AND","statements": [{"left": "${P:A:error_code}", "op": "!=", "right": "0"}],
+         "error": true
+      }
+   },
+
+   {
+      "name": "Run a scan",
+      "operation": "PATCH",
+      "parse": "JSON",
+      "transport": {"path": "/scan/${P:A:response{scan}{id}}"},
+      "body_list": [
+         "{\"ipList\":\"${L:A:ScanObject}\",\"schedule\":{\"repeatRule\": \"FREQ=NOW;INTERVAL=1\", \"type\": \"now\"}}"
+      ]
+   },
+
+   {
+      "name": "Check Run a scan",
+      "operation": "CONDITION",
+      "condition": {
+         "condition_type": "AND","statements": [{"left": "${P:A:error_code}", "op": "!=", "right": "0"}],
+         "error": true
+      }
+   },
+
+   {
+     "name": "checkSaveLastScan",
+     "operation": "CONDITION",
+     "condition": {
+       "condition_type": "OR", "statements": [
+         {"left": "${L:A:SaveEA}", "op": "!=", "right": "true"},
+         {"left": "${L:A:EASource}", "op": "==", "right": "Net"}
+       ],
+       "next": "Fin"
+     }
+   },
+
+   {
+      "name": "Update_LastScan",
+      "operation": "PUT",
+      "transport": {"path": "${L:A:Obj_ref}"},
+      "wapi": "v2.7",
+      "wapi_quoting": "JSON",
+       "body_list": [
+           "{\"extattrs+\":{\"TNBL_ScanTime\": { \"value\": \"${L:U:ScanDate}\"}}}"
+       ]
+   },
+
+   {
+       "name": "Fin",
+       "operation": "NOP",
+       "body": "${XC:DEBUG:{L:}}${XC:DEBUG:{E:}}${XC:DEBUG:{P:}}"
+   }
+
+
+
+   ]
+}

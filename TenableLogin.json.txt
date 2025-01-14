@@ -1,0 +1,37 @@
+{
+   "vendor_identifier": "Tenable SC",
+   "version": "3.0",
+   "name": "Tenable SC Login",
+   "content_type": "application/json",
+   "type": "REST_EVENT",
+   "event_type": ["SESSION"],
+   "steps": [
+      {
+         "name": "clear basic auth",
+         "operation": "NOP",
+         "body": "${XC:ASSIGN:{H:Authorization}:{S:}}"
+      },
+      {
+         "name": "send login request",
+         "operation": "POST",
+         "parse": "JSON",
+         "headers": {"X-Requested-With": "XMLHttpRequest"},
+         "transport": {"path": "/token"},
+         "body_list": [
+            "{\"username\":\"${UT:A:USERNAME}\",\"password\":\"${UT:A:PASSWORD}\"}"
+         ]
+      },
+      {
+         "name": "login. errorcheck",
+         "operation": "CONDITION",
+         "condition": {
+            "condition_type": "AND",
+            "statements": [
+               {"left": "${P:A:error_code}", "op": "!=", "right": "0"}
+            ],
+            "error": true,
+            "else_eval": "${XC:COPY:{S:SESSID}:{P:response{token}}}"
+         }
+      }
+   ]
+}
