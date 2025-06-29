@@ -1,0 +1,22 @@
+annotated-types==0.7.0
+anyio==4.9.0
+appdirs==1.4.4
+certifi==2025.6.15
+click==8.2.1
+click-option-group==0.5.7
+coloredlogs==15.0.1
+dnspython==2.7.0
+h11==0.16.0
+httpcore==1.0.9
+httpx==0.28.1
+humanfriendly==10.0
+ibx-sdk @ git+https://github.com/Infoblox-PS/ibx-sdk.git@5b2815597c62d6db57368d6e0998185b8f42e31e
+idna==3.10
+netaddr==1.3.0
+pydantic==2.11.7
+pydantic_core==2.33.2
+sniffio==1.3.1
+syslog-rfc5424-formatter==1.2.3
+typing-inspection==0.4.1
+typing_extensions==4.14.0
+urllib3==2.5.0
